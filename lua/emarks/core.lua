@@ -74,7 +74,7 @@ end
 function M.load()
   local file = io.open("marks.txt", "r")
   if file then
-    extmarks = load("return " .. file:read("*all"))()
+    extmarks = load("return " .. file:read("*all"))() or {}
     file:close()
     -- print("Marks loaded from marks.txt")
   else
