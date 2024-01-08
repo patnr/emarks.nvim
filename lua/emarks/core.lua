@@ -33,7 +33,9 @@ M.goto_mark = function(label)
     else
       local pos = vim.api.nvim_buf_get_extmark_by_id(buf, ns, id, {})
       vim.api.nvim_set_current_buf(buf)
-      vim.api.nvim_win_set_cursor(0, { pos[1] + 1, pos[2] })
+      if pos[1] then
+        vim.api.nvim_win_set_cursor(0, { pos[1] + 1, pos[2] })
+      end
     end
   else
     print("Error: No mark with label " .. label)
@@ -126,20 +128,26 @@ function M.save(line_contents)
   end
 end
 
--- Return `marks` with any/all bufnr and mark-id converted to name and pos.
+-- Return fresh `marks` with any/all bufnr and mark-id converted to name and pos.
 function M.marks_for_storage()
   local marks = {}
   for label, mark in pairs(extmarks) do
     local buf, pos = mark[1], mark[2]
     if type(buf) == "number" then
-      -- Convert buffer id's to filenames
-      pos = vim.api.nvim_buf_get_extmark_by_id(buf, ns, pos, {})
-      buf = vim.fn.bufname(buf)
-      -- Convert from (0, 0)-based indexing (api) to (1, 1)-based indexing
-      pos[1] = pos[1] + 1
-      pos[2] = pos[2] + 1
+      if vim.api.nvim_buf_is_loaded(buf) then
+        -- Convert buffer id's to filenames
+        pos = vim.api.nvim_buf_get_extmark_by_id(buf, ns, pos, {})
+        buf = vim.fn.bufname(buf)
+        if pos[1] then
+          -- Convert from (0, 0)-based indexing (api) to (1, 1)-based indexing
+          pos[1] = pos[1] + 1
+          pos[2] = pos[2] + 1
+          marks[label] = {buf, pos}
+        end
+      end
+    else
+      marks[label] = {buf, pos}
     end
-    marks[label] = {buf, pos}
   end
   return marks
 end
