@@ -1,4 +1,7 @@
 local M = {}
+---@type string?
+M.current = nil
+
 
 -- ╔════════════════════╗
 -- ║ Core functionality ║
@@ -32,7 +35,13 @@ M.goto_mark = function(label)
       M.goto_mark(label)
     else
       local pos = vim.api.nvim_buf_get_extmark_by_id(buf, ns, id, {})
-      vim.api.nvim_set_current_buf(buf)
+      local win_num = vim.fn.bufwinid(buf)
+      if win_num ~= -1 then
+        vim.api.nvim_set_current_win(win_num)
+      else
+        -- vim.api.nvim_set_current_buf(buf) -- doesnt get shown in bufferline
+        vim.api.nvim_command("e " .. vim.fn.bufname(buf))
+      end
       if pos[1] then
         vim.api.nvim_win_set_cursor(0, { pos[1] + 1, pos[2] })
       end
@@ -56,6 +65,25 @@ end
 -- ╔════════════════════╗
 -- ║ Read/Write storage ║
 -- ╚════════════════════╝
+
+function M.set_marks_file()
+  local pattern = "/"
+  if vim.fn.has("win32") == 1 then
+    pattern = "[\\:]"
+  end
+  local name = vim.fn.getcwd():gsub(pattern, "%%") .. ".emarks"
+  name = require("emarks.config").options.dir .. name
+  if not vim.loop.fs_stat(name) then
+    local file = io.open(name, "w")
+    if file then
+      file:close()
+    else
+      print("Error: Unable to open file " .. name .. " for writing")
+    end
+  end
+  M.current = name
+end
+
 function M.reload_for_buffer()
   local current_bufr = vim.api.nvim_get_current_buf()
   local current_name = vim.fn.bufname()
@@ -64,7 +92,7 @@ function M.reload_for_buffer()
     if type(bufname) == "string" and bufname == current_name then
       local ok, _ = pcall(M.set, label, current_bufr, pos[1]-1, pos[2]-1)
       if not ok then
-        -- Possible causes: manual editing of marks.txt,
+        -- Possible causes: manual editing of marks file
         -- or changes to buffer outside of this neovim/emarks session.
         print("Error: Unable to set extmark with label " .. label)
         M.clear(label)
@@ -74,13 +102,13 @@ function M.reload_for_buffer()
 end
 
 function M.load()
-  local file = io.open("marks.txt", "r")
+  local file = io.open(M.current, "r")
   if file then
     extmarks = load("return " .. file:read("*all"))() or {}
     file:close()
-    -- print("Marks loaded from marks.txt")
+    -- print("Marks loaded")
   else
-    print("Error: Unable to open marks.txt for reading")
+    print("Error: Unable to open " .. file .. " for reading")
   end
 end
 
@@ -112,7 +140,7 @@ local function append_line_contents(txt, marks)
 end
 
 function M.save(line_contents)
-  local file = io.open("marks.txt", "w")
+  local file = io.open(M.current, "w")
   local marks = M.marks_for_storage()
   local txt = vim.inspect(marks)
   if line_contents then
@@ -122,9 +150,9 @@ function M.save(line_contents)
   if file then
     file:write(txt)
     file:close()
-    -- print("Marks saved to marks.txt")
+    -- print("Marks saved")
   else
-    print("Error: Unable to open marks.txt for writing")
+    print("Error: Unable to open file for writing")
   end
 end
 
@@ -153,7 +181,7 @@ function M.marks_for_storage()
 end
 
 function M.show()
-  vim.api.nvim_command("e marks.txt")
+  vim.api.nvim_command("e " .. vim.fn.fnameescape(M.current))
 end
 
 vim.api.nvim_create_autocmd("BufReadPost", {
@@ -213,12 +241,12 @@ require("lazyvim.util.ui").get_mark = function(buf, lnum)
 
 end
 
--- ╔══════════════════════════╗
--- ║autocommands for marks.txt║
--- ╚══════════════════════════╝
+-- ╔═══════════════════════════╗
+-- ║autocommands for marks file║
+-- ╚═══════════════════════════╝
 vim.api.nvim_create_autocmd("BufWritePost", {
   group = "mygroup",
-  pattern = "marks.txt",
+  pattern = "*/emarks/*.emarks",
   callback = function()
     extmarks = {}
     M.load()
@@ -227,10 +255,10 @@ vim.api.nvim_create_autocmd("BufWritePost", {
 
 vim.api.nvim_create_autocmd("BufEnter", {
   group = "mygroup",
-  pattern = "marks.txt",
+  pattern = "*/emarks/*.emarks",
   callback = function()
     M.save(true)
-    vim.api.nvim_command("e marks.txt")
+    vim.api.nvim_command("e " .. vim.fn.fnameescape(M.current))
     vim.api.nvim_buf_set_option(0, "syntax", "lua")
   end,
 })

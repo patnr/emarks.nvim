@@ -12,6 +12,7 @@ end
 
 -- Inspired by persistence.nvim
 function M.start()
+  emarks.set_marks_file()
   emarks.load()
 
   vim.api.nvim_create_autocmd("VimLeavePre", {
