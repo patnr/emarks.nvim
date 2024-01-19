@@ -1,6 +1,3 @@
--- ╔═══════════════════════════╗
--- ║ Hook into which-key marks ║
--- ╚═══════════════════════════╝
 local wk = require('which-key.plugins.marks')
 local em = require('emarks.core')
 
@@ -17,6 +14,7 @@ local function getmarklist()
   return out
 end
 
+-- Copy-paste from which-key.plugins.marks
 local labels = {
   ["^"] = "Last position of cursor in insert mode",
   ["."] = "Last change in current buffer",
@@ -30,21 +28,21 @@ local labels = {
   [">"] = "To end of last visual selection",
 }
 
--- Copy-paste from plugin, except for 1 change (see below)
+-- Copy-paste from which-key.plugins.marks, except for 1 change (see below)
 function wk.run(_trigger, _mode, buf)
   local items = {}
 
-  -- NOTE: here is the only change made to the plugin
+  -- NOTE: only change is here: Merge emarks and regular marks.
   local marks = {}
-  -- vim.list_extend(marks, vim.fn.getmarklist(buf))
-  -- vim.list_extend(marks, vim.fn.getmarklist())
-  -- local filtered = {}
-  -- for _, mark in ipairs(marks) do
-  --   if not mark.mark:match("["..em.labelS.."]") then
-  --     filtered[#filtered+1] = mark
-  --   end
-  -- end
-  -- marks = filtered
+  vim.list_extend(marks, vim.fn.getmarklist(buf))
+  vim.list_extend(marks, vim.fn.getmarklist())
+  local non_emarks = {}
+  for _, mark in ipairs(marks) do
+    if not mark.mark:match("["..em.labelS.."]") then
+      non_emarks[#non_emarks+1] = mark
+    end
+  end
+  marks = non_emarks
   vim.list_extend(marks, getmarklist())
 
   for _, mark in pairs(marks) do
