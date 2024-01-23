@@ -226,7 +226,7 @@ require("lazyvim.util.ui").get_mark = function(buf, lnum)
   for label, mark in pairs(M.marks_for_storage()) do
     local bufname, pos = mark[1], mark[2]
     if vim.fn.bufnr(bufname) == buf and pos[1] == lnum then
-      return { text = label:sub(1,2), texthl = "DiagnosticHint" }
+      return { text = label:sub(1,2), texthl = "Identifier" }
     end
   end
 
@@ -235,7 +235,7 @@ require("lazyvim.util.ui").get_mark = function(buf, lnum)
   vim.list_extend(marks, vim.fn.getmarklist())
   for _, mark in ipairs(marks) do
     if mark.pos[1] == buf and mark.pos[2] == lnum and not mark.mark:match("["..M.labelS.."]") then
-      return { text = mark.mark:sub(2), texthl = "DiagnosticHint" }
+      return { text = mark.mark:sub(2), texthl = "Identifier" }
     end
   end
 
