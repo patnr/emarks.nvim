@@ -215,6 +215,7 @@ M.labelS = table.concat(labels, "")
 for i, lbl in ipairs(labels) do
   setmap("n", "m" .. lbl, function() M.mark_here(lbl) end)
   setmap("n", "'" .. lbl, function() M.goto_mark(lbl) end)
+  setmap("v", "'" .. lbl, function() M.goto_mark(lbl) end)
 end
 setmap("n", "''", M.show)
 
