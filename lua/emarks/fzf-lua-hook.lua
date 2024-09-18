@@ -125,7 +125,7 @@ local function goto_emark(selected)
   mark = mark:match("[^ ]+")
   emarks.goto_mark(mark)
   vim.cmd("stopinsert")
-  vim.cmd("normal! zz")
+  -- vim.cmd("normal! zz") -- don't disturb the view!
 end
 
 
