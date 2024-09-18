@@ -1,6 +1,6 @@
 local emarks = require("emarks.core")
 
-local ok, core = pcall(require, "fzf-lua.core")
+local ok, _ = pcall(require, "fzf-lua.core")
 if not ok then
   return
 end
@@ -51,6 +51,7 @@ local function get_emarks()
 
     -- Add line contents
     local ln_content = read_line_from_file(bufname, line)
+    ---@diagnostic disable-next-line: need-check-nil
     ln_content = ln_content:gsub("^%s*(.-)%s*$", "%1") -- de-indent
     -- Only works for loaded buffers:
     -- if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
@@ -103,6 +104,7 @@ function EmarkPreviewer:parse_entry(entry_str)
     else
       filepath = res
     end
+    ---@diagnostic disable-next-line: param-type-mismatch
     filepath = path.relative_to(filepath, uv.cwd())
   end
   return {
