@@ -217,7 +217,7 @@ for i, lbl in ipairs(labels) do
   setmap("n", "'" .. lbl, function() M.goto_mark(lbl) end)
   setmap("v", "'" .. lbl, function() M.goto_mark(lbl) end)
 end
-setmap("n", "''", M.show)
+setmap("n", "<leader>'", M.show)
 
 
 -- ╔════════════════════════════════╗

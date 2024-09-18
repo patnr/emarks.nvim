@@ -2,6 +2,7 @@ local Config = require("emarks.config")
 vim.api.nvim_create_augroup("mygroup", { clear = true })
 local emarks = require("emarks.core")
 require("emarks.which-key-hook")
+require("emarks.fzf-lua-hook")
 
 local M = {}
 
