@@ -2,7 +2,6 @@ local M = {}
 ---@type string?
 M.current = nil
 
-
 -- ╔════════════════════╗
 -- ║ Core functionality ║
 -- ╚════════════════════╝
@@ -12,20 +11,27 @@ local ns = vim.api.nvim_create_namespace("emarks")
 -- we don't need to keep track of the positions of the marks
 -- (which change as the buffer is modified), only their id's.
 local extmarks = {}
+local views = {}
 
-function M.set(label, bufnr, linenr, colnr)
+function M.set(label, bufnr, linenr, colnr, view)
   local id = vim.api.nvim_buf_set_extmark(bufnr, ns, linenr, colnr, {}) -- PS: NW corner: (0, 0)
   extmarks[label] = {bufnr, id}
+  views[label] = view
   -- print("Set extmark with label " .. label .. " at " .. linenr .. ":" .. colnr)
 end
 
 function M.mark_here(label)
   local pos = vim.api.nvim_win_get_cursor(0) -- PS: NW corner: (1, 0)
   local bufnr = vim.api.nvim_get_current_buf()
-  M.set(label, bufnr, pos[1] - 1, pos[2])
+  local view = vim.fn.winsaveview()
+  M.set(label, bufnr, pos[1] - 1, pos[2], view)
 end
 
-M.goto_mark = function(label)
+M.goto_mark = function(label, opts)
+  local options = { restore_view = true }
+  if opts then
+    options = vim.tbl_extend("force", options, opts)
+  end
   local mark = extmarks[label]
   if mark ~= nil then
     local buf, id = mark[1], mark[2]
@@ -44,6 +50,11 @@ M.goto_mark = function(label)
       end
       if pos[1] then
         vim.api.nvim_win_set_cursor(0, { pos[1] + 1, pos[2] })
+        if options.restore_view then
+          if views[label] then
+            vim.fn.winrestview(views[label])
+          end
+        end
       end
     end
   else
@@ -58,9 +69,9 @@ function M.clear(label)
     end
   else
     extmarks[label] = nil
+    views[label] = nil
   end
 end
-
 
 -- ╔════════════════════╗
 -- ║ Read/Write storage ║
@@ -73,7 +84,7 @@ function M.set_marks_file()
   end
   local name = vim.fn.getcwd():gsub(pattern, "%%") .. ".emarks"
   name = require("emarks.config").options.dir .. name
-  if not vim.loop.fs_stat(name) then
+  if not vim.uv.fs_stat(name) then
     local file = io.open(name, "w")
     if file then
       file:close()
@@ -90,7 +101,7 @@ function M.reload_for_buffer()
   for label, mark in pairs(extmarks) do
     local bufname, pos = mark[1], mark[2]
     if type(bufname) == "string" and bufname == current_name then
-      local ok, _ = pcall(M.set, label, current_bufr, pos[1]-1, pos[2]-1)
+      local ok, _ = pcall(M.set, label, current_bufr, pos[1]-1, pos[2]-1, views[label])
       if not ok then
         -- Possible causes: manual editing of marks file
         -- or changes to buffer outside of this neovim/emarks session.
@@ -104,7 +115,9 @@ end
 function M.load()
   local file = io.open(M.current, "r")
   if file then
-    extmarks = load("return " .. file:read("*all"))() or {}
+    local data = load("return " .. file:read("*all"))() or {}
+    extmarks = data.extmarks or {}
+    views = data.views or {}
     file:close()
     -- print("Marks loaded")
   else
@@ -142,7 +155,7 @@ end
 function M.save(line_contents)
   local file = io.open(M.current, "w")
   local marks = M.marks_for_storage()
-  local txt = vim.inspect(marks)
+  local txt = vim.inspect({ extmarks = marks, views = views })
   if line_contents then
     txt = append_line_contents(txt, marks)
   end
@@ -200,29 +213,27 @@ local function setmap(mode, lhs, rhs, opts)
   vim.keymap.set(mode, lhs, rhs, options)
 end
 
+-- stylua: ignore
 local labels = {}
-for i = 1, 9 do
-  labels[#labels+1] = tostring(i)
-end
-for charCode = string.byte('A'), string.byte('Z') do
-  labels[#labels+1] = string.char(charCode)
-end
-for charCode = string.byte('a'), string.byte('z') do
-  labels[#labels+1] = string.char(charCode)
-end
+for i = 1, 9 do labels[#labels+1] = tostring(i) end
+for charCode = string.byte('A'), string.byte('Z') do labels[#labels+1] = string.char(charCode) end
+for charCode = string.byte('a'), string.byte('z') do labels[#labels+1] = string.char(charCode) end
 M.labelS = table.concat(labels, "")
 
-for i, lbl in ipairs(labels) do
+for _, lbl in ipairs(labels) do
   setmap("n", "m" .. lbl, function() M.mark_here(lbl) end)
   setmap("n", "'" .. lbl, function() M.goto_mark(lbl) end)
   setmap("v", "'" .. lbl, function() M.goto_mark(lbl) end)
+  -- For the above labels, shadow § (which I map to backtick, i.e. built-in marks)
+  setmap("n", "§" .. lbl, function() M.goto_mark(lbl, {restore_view=false}) end)
+  setmap("v", "§" .. lbl, function() M.goto_mark(lbl, {restore_view=false}) end)
 end
 setmap("n", "<leader>'", M.show)
-
 
 -- ╔════════════════════════════════╗
 -- ║ Hook into lazyvim statuscolumn ║
 -- ╚════════════════════════════════╝
+---@diagnostic disable-next-line: duplicate-set-field
 require("lazyvim.util.ui").get_mark = function(buf, lnum)
   for label, mark in pairs(M.marks_for_storage()) do
     local bufname, pos = mark[1], mark[2]
@@ -250,6 +261,7 @@ vim.api.nvim_create_autocmd("BufWritePost", {
   pattern = "*/emarks/*.emarks",
   callback = function()
     extmarks = {}
+    views = {}
     M.load()
   end,
 })
@@ -260,7 +272,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
   callback = function()
     M.save(true)
     vim.api.nvim_command("e " .. vim.fn.fnameescape(M.current))
-    vim.api.nvim_buf_set_option(0, "syntax", "lua")
+    vim.api.nvim_set_option_value("syntax", "lua", {buf=0})
   end,
 })
 
