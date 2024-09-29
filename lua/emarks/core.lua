@@ -15,7 +15,7 @@ local views = {}
 
 function M.set(label, bufnr, linenr, colnr, view)
   local id = vim.api.nvim_buf_set_extmark(bufnr, ns, linenr, colnr, {}) -- PS: NW corner: (0, 0)
-  extmarks[label] = {bufnr, id}
+  extmarks[label] = { bufnr, id }
   views[label] = view
   -- print("Set extmark with label " .. label .. " at " .. linenr .. ":" .. colnr)
 end
@@ -101,7 +101,7 @@ function M.reload_for_buffer()
   for label, mark in pairs(extmarks) do
     local bufname, pos = mark[1], mark[2]
     if type(bufname) == "string" and bufname == current_name then
-      local ok, _ = pcall(M.set, label, current_bufr, pos[1]-1, pos[2]-1, views[label])
+      local ok, _ = pcall(M.set, label, current_bufr, pos[1] - 1, pos[2] - 1, views[label])
       if not ok then
         -- Possible causes: manual editing of marks file
         -- or changes to buffer outside of this neovim/emarks session.
@@ -138,7 +138,7 @@ local function append_line_contents(txt, marks)
       local bufnr = vim.fn.bufnr(bufname)
       local line
       if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
-        line = vim.api.nvim_buf_get_lines(bufnr, iLine-1, iLine, false)[1]
+        line = vim.api.nvim_buf_get_lines(bufnr, iLine - 1, iLine, false)[1]
         -- Only use for debugging (since it obscures subsequent grepping): indicate column:
         -- line = line:sub(1, iCol) .. "[" .. line:sub(iCol+1, iCol+1) .. "]" .. line:sub(iCol + 2)
         line = line:gsub("^%s*(.-)%s*$", "%1")
@@ -183,11 +183,11 @@ function M.marks_for_storage()
           -- Convert from (0, 0)-based indexing (api) to (1, 1)-based indexing
           pos[1] = pos[1] + 1
           pos[2] = pos[2] + 1
-          marks[label] = {buf, pos}
+          marks[label] = { buf, pos }
         end
       end
     else
-      marks[label] = {buf, pos}
+      marks[label] = { buf, pos }
     end
   end
   return marks
@@ -238,7 +238,7 @@ require("lazyvim.util.ui").get_mark = function(buf, lnum)
   for label, mark in pairs(M.marks_for_storage()) do
     local bufname, pos = mark[1], mark[2]
     if vim.fn.bufnr(bufname) == buf and pos[1] == lnum then
-      return { text = label:sub(1,2), texthl = "Identifier" }
+      return { text = label:sub(1, 2), texthl = "Identifier" }
     end
   end
 
@@ -246,11 +246,10 @@ require("lazyvim.util.ui").get_mark = function(buf, lnum)
   local marks = vim.fn.getmarklist(buf)
   vim.list_extend(marks, vim.fn.getmarklist())
   for _, mark in ipairs(marks) do
-    if mark.pos[1] == buf and mark.pos[2] == lnum and not mark.mark:match("["..M.labelS.."]") then
+    if mark.pos[1] == buf and mark.pos[2] == lnum and not mark.mark:match("[" .. M.labelS .. "]") then
       return { text = mark.mark:sub(2), texthl = "Identifier" }
     end
   end
-
 end
 
 -- ╔═══════════════════════════╗
