@@ -219,20 +219,61 @@ end
 
 -- stylua: ignore
 local labels = {}
-for i = 1, 9 do labels[#labels+1] = tostring(i) end
-for charCode = string.byte('A'), string.byte('Z') do labels[#labels+1] = string.char(charCode) end
-for charCode = string.byte('a'), string.byte('z') do labels[#labels+1] = string.char(charCode) end
+for i = 1, 9 do
+  labels[#labels + 1] = tostring(i)
+end
+for charCode = string.byte("A"), string.byte("Z") do
+  labels[#labels + 1] = string.char(charCode)
+end
+for charCode = string.byte("a"), string.byte("z") do
+  labels[#labels + 1] = string.char(charCode)
+end
 M.labelS = table.concat(labels, "")
 
 for _, lbl in ipairs(labels) do
-  setmap("n", "m" .. lbl, function() M.mark_here(lbl) end)
-  setmap("n", "'" .. lbl, function() M.goto_mark(lbl) end)
-  setmap("v", "'" .. lbl, function() M.goto_mark(lbl) end)
+  setmap("n", "m" .. lbl, function()
+    M.mark_here(lbl)
+  end)
+  setmap("n", "'" .. lbl, function()
+    M.goto_mark(lbl)
+  end)
+  setmap("v", "'" .. lbl, function()
+    M.goto_mark(lbl)
+  end)
   -- For the above labels, shadow § (which I map to backtick, i.e. built-in marks)
-  setmap("n", "§" .. lbl, function() M.goto_mark(lbl, {restore_view=false}) end)
-  setmap("v", "§" .. lbl, function() M.goto_mark(lbl, {restore_view=false}) end)
+  setmap("n", "§" .. lbl, function()
+    M.goto_mark(lbl, { restore_view = false })
+  end)
+  setmap("v", "§" .. lbl, function()
+    M.goto_mark(lbl, { restore_view = false })
+  end)
 end
 setmap("n", "<leader>'", M.show)
+
+-- Function to get the lowest available label
+function M.get_lowest_available_label()
+  local possible_lables = "123456789qwertyuipasdfghjkl"
+  for i = 1, #possible_lables do
+    local label = possible_lables:sub(i, i)
+    if not extmarks[label] then
+      return label
+    end
+  end
+  return nil -- In case all possible_lables are used
+end
+
+-- Function to set a mark with the lowest available label
+function M.mark_here_auto()
+  local label = M.get_lowest_available_label()
+  if label then
+    M.mark_here(label)
+  else
+    print("Error: No more available labels")
+  end
+end
+
+-- Map "mm" to set a mark with the lowest available label
+setmap("n", "mm", M.mark_here_auto)
 
 -- ╔════════════════════════════════╗
 -- ║ Hook into lazyvim statuscolumn ║
