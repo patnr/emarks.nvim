@@ -12,6 +12,7 @@ local ns = vim.api.nvim_create_namespace("emarks")
 -- (which change as the buffer is modified), only their id's.
 local extmarks = {}
 local views = {}
+local last_visited_label = nil
 
 function M.set(label, bufnr, linenr, colnr, view)
   local id = vim.api.nvim_buf_set_extmark(bufnr, ns, linenr, colnr, {}) -- PS: NW corner: (0, 0)
@@ -34,6 +35,7 @@ M.goto_mark = function(label, opts)
   end
   local mark = extmarks[label]
   if mark ~= nil then
+    last_visited_label = label
     local buf, id = mark[1], mark[2]
     if type(buf) == "string" then
       -- Need to open buffer (and reload_for_buffer)
@@ -59,6 +61,23 @@ M.goto_mark = function(label, opts)
     end
   else
     print("Error: No mark with label " .. label)
+  end
+end
+
+function M.goto_mark_cyclical(inc)
+  local labels = vim.tbl_keys(extmarks)
+  -- table.sort(labels)
+  vim.print(labels)
+  for i, label in ipairs(labels) do
+    if not last_visited_label then
+      last_visited_label = label -- Init
+    end
+    if label == last_visited_label then
+      local i1 = (i + inc - 1) % #labels + 1
+      local l1 = labels[i1]
+      M.goto_mark(l1)
+      return
+    end
   end
 end
 
@@ -216,6 +235,11 @@ local function setmap(mode, lhs, rhs, opts)
   end
   vim.keymap.set(mode, lhs, rhs, options)
 end
+
+-- Shift-opt-n/p (h/l also available?)
+-- stylua: ignore start
+setmap("n", "“", function() M.goto_mark_cyclical(1) end)
+setmap("n", "∏", function() M.goto_mark_cyclical(-1) end)
 
 local labels = {}
 for i = 1, 9 do labels[#labels + 1] = tostring(i) end
