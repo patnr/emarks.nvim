@@ -66,7 +66,12 @@ end
 
 function M.goto_mark_cyclical(inc)
   local labels = vim.tbl_keys(extmarks)
-  -- table.sort(labels)
+  -- TODO: would like to not do sort, but rather use the order in which marks were set.
+  -- However, a dict is not ordered, so we would need to maintain a separate list
+  -- (requires more bookkeeping, especially since we allow manual editing of the corresponding file)
+  -- or change the data structure extmarks to a list of {label, mark} pairs
+  -- (while AI can surely do this, would also need to change hooks for plugins, including mini.map)
+  table.sort(labels)
   vim.print(labels)
   for i, label in ipairs(labels) do
     if not last_visited_label then
