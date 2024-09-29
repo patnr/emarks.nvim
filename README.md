@@ -9,3 +9,14 @@ Why not use regular marks:
 Why not harpoon:
 
 - Can have multiple marks per file
+
+Other alternatives:
+
+- harpoon2
+- crusj/bookmarks.nvim
+- vim-bookmarks
+- marks.nvim
+- nvim-project-marks
+- LintaoAmons/bookmarks.nvim
+- tomasky/bookmarks.nvim
+- arrow.nvim
