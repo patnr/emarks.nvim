@@ -125,12 +125,16 @@ function M.load()
   end
 end
 
+local function parse_mark_label(line)
+  return line:match('^%s*%[?"?([%w_]+)"?%]?%s*=')
+end
+
 local function append_line_contents(txt, marks)
   local lines = vim.split(txt, "\n")
   for i = 1, #lines do
     -- Must extract label from printed text because sorted, unlike `marks`.
     -- The label occurs as `["6"] = ...` or `a = ...`
-    local lbl = lines[i]:match("^%s*%[?\"?([%w_]+)\"?%]?%s*=")
+    local lbl = parse_mark_label(lines[i])
     local mark = marks[lbl]
     if mark ~= nil then
       local bufname, pos = mark[1], mark[2]
@@ -271,7 +275,15 @@ vim.api.nvim_create_autocmd("BufEnter", {
   callback = function()
     M.save(true)
     vim.api.nvim_command("e " .. vim.fn.fnameescape(M.current))
-    vim.api.nvim_set_option_value("syntax", "lua", {buf=0})
+    vim.api.nvim_set_option_value("syntax", "lua", { buf = 0 })
+    -- Go to mark on enter
+    setmap("n", "<CR>", function()
+      local line = vim.api.nvim_get_current_line()
+      local lbl = parse_mark_label(line)
+      if lbl then
+        M.goto_mark(lbl)
+      end
+    end, { buffer = true })
   end,
 })
 
