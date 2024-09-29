@@ -72,7 +72,6 @@ function M.goto_mark_cyclical(inc)
   -- or change the data structure extmarks to a list of {label, mark} pairs
   -- (while AI can surely do this, would also need to change hooks for plugins, including mini.map)
   table.sort(labels)
-  vim.print(labels)
   for i, label in ipairs(labels) do
     if not last_visited_label then
       last_visited_label = label -- Init
