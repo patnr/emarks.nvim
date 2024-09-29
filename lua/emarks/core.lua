@@ -217,38 +217,22 @@ local function setmap(mode, lhs, rhs, opts)
   vim.keymap.set(mode, lhs, rhs, options)
 end
 
--- stylua: ignore
 local labels = {}
-for i = 1, 9 do
-  labels[#labels + 1] = tostring(i)
-end
-for charCode = string.byte("A"), string.byte("Z") do
-  labels[#labels + 1] = string.char(charCode)
-end
-for charCode = string.byte("a"), string.byte("z") do
-  labels[#labels + 1] = string.char(charCode)
-end
+for i = 1, 9 do labels[#labels + 1] = tostring(i) end
+for charCode = string.byte("A"), string.byte("Z") do labels[#labels + 1] = string.char(charCode) end
+for charCode = string.byte("a"), string.byte("z") do labels[#labels + 1] = string.char(charCode) end
 M.labelS = table.concat(labels, "")
 
 for _, lbl in ipairs(labels) do
-  setmap("n", "m" .. lbl, function()
-    M.mark_here(lbl)
-  end)
-  setmap("n", "'" .. lbl, function()
-    M.goto_mark(lbl)
-  end)
-  setmap("v", "'" .. lbl, function()
-    M.goto_mark(lbl)
-  end)
+  setmap("n", "m" .. lbl, function() M.mark_here(lbl) end)
+  setmap("n", "'" .. lbl, function() M.goto_mark(lbl) end)
+  setmap("v", "'" .. lbl, function() M.goto_mark(lbl) end)
   -- For the above labels, shadow § (which I map to backtick, i.e. built-in marks)
-  setmap("n", "§" .. lbl, function()
-    M.goto_mark(lbl, { restore_view = false })
-  end)
-  setmap("v", "§" .. lbl, function()
-    M.goto_mark(lbl, { restore_view = false })
-  end)
+  setmap("n", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
+  setmap("v", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
 end
 setmap("n", "<leader>'", M.show)
+-- stylua: ignore end
 
 -- Function to get the lowest available label
 function M.get_lowest_available_label()
