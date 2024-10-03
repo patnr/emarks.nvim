@@ -72,10 +72,25 @@ function M.goto_mark_cyclical(inc)
   -- or change the data structure extmarks to a list of {label, mark} pairs
   -- (while AI can surely do this, would also need to change hooks for plugins, including mini.map)
   table.sort(labels)
-  for i, label in ipairs(labels) do
-    if not last_visited_label then
-      last_visited_label = label -- Init
+
+  -- Init
+  if not last_visited_label then
+    last_visited_label = labels[1]
+  end
+
+  -- Check if currently on a line with a mark
+  local current_lnum, _ = unpack(vim.api.nvim_win_get_cursor(0))
+  local current_buf = vim.api.nvim_get_current_buf()
+  for label, mark in pairs(M.marks_for_storage()) do
+    local bufname, pos = mark[1], mark[2]
+    if vim.fn.bufnr(bufname) == current_buf and pos[1] == current_lnum then
+      last_visited_label = label
+      break
     end
+  end
+
+  -- Goto next/prev
+  for i, label in ipairs(labels) do
     if label == last_visited_label then
       local i1 = (i + inc - 1) % #labels + 1
       local l1 = labels[i1]
