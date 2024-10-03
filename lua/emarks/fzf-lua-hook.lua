@@ -1,5 +1,10 @@
 local emarks = require("emarks.core")
 
+if #vim.api.nvim_list_uis() == 0 then
+  -- Fix errors when running `nvim --headless`
+  return
+end
+
 local ok, _ = pcall(require, "fzf-lua.core")
 if not ok then
   return
