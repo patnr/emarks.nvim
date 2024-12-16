@@ -257,8 +257,8 @@ end
 
 -- Shift-opt-n/p (h/l also available?)
 -- stylua: ignore start
-setmap("n", "“", function() M.goto_mark_cyclical(1) end)
-setmap("n", "∏", function() M.goto_mark_cyclical(-1) end)
+setmap("n", "<M-N>", function() M.goto_mark_cyclical(1) end)
+setmap("n", "<M-P>", function() M.goto_mark_cyclical(-1) end)
 
 local labels = {}
 for i = 1, 9 do labels[#labels + 1] = tostring(i) end
