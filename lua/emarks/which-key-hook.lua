@@ -1,4 +1,7 @@
-local wk = require('which-key.plugins.marks')
+local success, wk = pcall(require,'which-key.plugins.marks')
+if not success then
+    return
+end
 local em = require('emarks.core')
 
 -- Format as vim.fn.getmarklist
