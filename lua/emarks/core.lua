@@ -64,6 +64,23 @@ M.goto_mark = function(label, opts)
   end
 end
 
+function M.get_mark_label(bufnr, lnum)
+  for label, mark in pairs(M.marks_for_storage()) do
+    local bufname, pos = mark[1], mark[2]
+    if vim.fn.bufnr(bufname) == bufnr and pos[1] == lnum then
+      return label
+    end
+  end
+end
+
+function M.get_mark_label_here()
+  local lnum = vim.api.nvim_win_get_cursor(0)[1]
+  local bufnr = vim.api.nvim_get_current_buf()
+  return M.get_mark_label(bufnr, lnum)
+end
+
+
+
 function M.goto_mark_cyclical(inc)
   local labels = vim.tbl_keys(extmarks)
   -- TODO: would like to not do sort, but rather use the order in which marks were set.
@@ -79,15 +96,7 @@ function M.goto_mark_cyclical(inc)
   end
 
   -- Check if currently on a line with a mark
-  local current_lnum, _ = unpack(vim.api.nvim_win_get_cursor(0))
-  local current_buf = vim.api.nvim_get_current_buf()
-  for label, mark in pairs(M.marks_for_storage()) do
-    local bufname, pos = mark[1], mark[2]
-    if vim.fn.bufnr(bufname) == current_buf and pos[1] == current_lnum then
-      last_visited_label = label
-      break
-    end
-  end
+  last_visited_label= M.get_mark_label_here() or last_visited_label
 
   -- Goto next/prev
   for i, label in ipairs(labels) do
@@ -108,6 +117,13 @@ function M.clear(label)
   else
     extmarks[label] = nil
     views[label] = nil
+  end
+end
+
+function M.clear_mark_here()
+  local lbl = M.get_mark_label_here()
+  if lbl then
+    M.clear(lbl)
   end
 end
 
@@ -275,6 +291,7 @@ for _, lbl in ipairs(labels) do
   setmap("v", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
 end
 setmap("n", "<leader>'", M.show)
+setmap("n", "dm", M.clear_mark_here)
 -- stylua: ignore end
 
 -- Function to get the lowest available label
@@ -307,11 +324,10 @@ setmap("n", "mm", M.mark_here_auto)
 -- ╚════════════════════════════════╝
 ---@diagnostic disable-next-line: duplicate-set-field
 require("lazyvim.util.ui").get_mark = function(buf, lnum)
-  for label, mark in pairs(M.marks_for_storage()) do
-    local bufname, pos = mark[1], mark[2]
-    if vim.fn.bufnr(bufname) == buf and pos[1] == lnum then
-      return { text = label:sub(1, 2), texthl = "Identifier" }
-    end
+  local label = M.get_mark_label(buf, lnum)
+  if label then
+    label = label:sub(1, 2) -- ensure 1 char
+    return { text = label, texthl = "Identifier" }
   end
 
   -- Show built-in marks not used by us
