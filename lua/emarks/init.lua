@@ -51,7 +51,7 @@ function M.save()
   emarks.save()
 end
 
-function M.load(opt)
+function M.load()
   emarks.load()
 end
 
