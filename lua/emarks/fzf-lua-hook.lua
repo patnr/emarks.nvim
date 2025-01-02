@@ -45,7 +45,7 @@ local function read_line_from_file(filepath, line_number)
 end
 
 local function get_emarks()
-  local marks = emarks.marks_for_storage()
+  local marks = emarks.extmark_locations()
   local entries = {}
   for label, data in pairs(marks) do
     local bufname, pos = unpack(data)

@@ -1,16 +1,40 @@
 local M = {}
----@type string?
-M.current = nil
 
--- ╔════════════════════╗
--- ║ Core functionality ║
--- ╚════════════════════╝
+-- ╔═════════════════════════════════════════════════════╗
+-- ║ Core (in-memory) functionality (set/get/goto/clear) ║
+-- ╚═════════════════════════════════════════════════════╝
+
+-- We only keep track of the extmark id's.
+local extmarks = {}
+-- The actual mark locations are kept track of by `ns`,
+-- and change continuously as the buffer is modified.
 local ns = vim.api.nvim_create_namespace("emarks")
 
--- With the exception of the occasion of storing them,
--- we don't need to keep track of the positions of the marks
--- (which change as the buffer is modified), only their id's.
-local extmarks = {}
+-- The following converts id to filename and pos.
+function M.extmark_locations()
+  local marks = {}
+  for label, mark in pairs(extmarks) do
+    local buf, pos = mark[1], mark[2]
+    if type(buf) == "number" then
+      if vim.api.nvim_buf_is_loaded(buf) then
+        -- Convert bufnr to filenames
+        pos = vim.api.nvim_buf_get_extmark_by_id(buf, ns, pos, {})
+        buf = vim.fn.bufname(buf)
+        if pos[1] then
+          -- Convert from (0, 0)-based indexing (api) to (1, 1)-based indexing
+          pos[1] = pos[1] + 1
+          pos[2] = pos[2] + 1
+          marks[label] = { buf, pos }
+        end
+      end
+    else
+      marks[label] = { buf, pos }
+    end
+  end
+  return marks
+end
+
+-- Aux info
 local views = {}
 local last_visited_label = nil
 
@@ -38,7 +62,7 @@ M.goto_mark = function(label, opts)
     last_visited_label = label
     local buf, id = mark[1], mark[2]
     if type(buf) == "string" then
-      -- Need to open buffer (and reload_for_buffer)
+      -- Need to open buffer (⇒ reload_for_buffer)
       vim.api.nvim_command("e " .. buf)
       M.goto_mark(label)
     else
@@ -64,8 +88,19 @@ M.goto_mark = function(label, opts)
   end
 end
 
+function M.clear(label)
+  if label == nil then
+    for lbl, _ in pairs(extmarks) do
+      M.clear(lbl)
+    end
+  else
+    extmarks[label] = nil
+    views[label] = nil
+  end
+end
+
 function M.get_mark_label(bufnr, lnum)
-  for label, mark in pairs(M.marks_for_storage()) do
+  for label, mark in pairs(M.extmark_locations()) do
     local bufname, pos = mark[1], mark[2]
     if vim.fn.bufnr(bufname) == bufnr and pos[1] == lnum then
       return label
@@ -79,7 +114,12 @@ function M.get_mark_label_here()
   return M.get_mark_label(bufnr, lnum)
 end
 
-
+function M.clear_mark_here()
+  local lbl = M.get_mark_label_here()
+  if lbl then
+    M.clear(lbl)
+  end
+end
 
 function M.goto_mark_cyclical(inc)
   local labels = vim.tbl_keys(extmarks)
@@ -109,27 +149,73 @@ function M.goto_mark_cyclical(inc)
   end
 end
 
-function M.clear(label)
-  if label == nil then
-    for lbl, _ in pairs(extmarks) do
-      M.clear(lbl)
+-- Function to get the lowest available label
+function M.get_lowest_available_label()
+  local possible_lables = "123456789qwertyuipasdfghjkl"
+  for i = 1, #possible_lables do
+    local label = possible_lables:sub(i, i)
+    if not extmarks[label] then
+      return label
     end
+  end
+  return nil -- In case all possible_lables are used
+end
+
+-- Function to set a mark with the lowest available label
+function M.mark_here_auto()
+  local label = M.get_lowest_available_label()
+  if label then
+    M.mark_here(label)
   else
-    extmarks[label] = nil
-    views[label] = nil
+    print("Error: No more available labels")
   end
 end
 
-function M.clear_mark_here()
-  local lbl = M.get_mark_label_here()
-  if lbl then
-    M.clear(lbl)
+
+-- ╔════════╗
+-- ║Mappings║
+-- ╚════════╝
+local function setmap(mode, lhs, rhs, opts)
+  local options = { noremap = true, silent = true }
+  if opts then
+    options = vim.tbl_extend("force", options, opts)
   end
+  vim.keymap.set(mode, lhs, rhs, options)
 end
+
+
+-- Shift-opt-n/p (h/l also available?)
+-- stylua: ignore start
+setmap("n", "<M-N>", function() M.goto_mark_cyclical(1) end, {desc="Next emark"})
+setmap("n", "<M-P>", function() M.goto_mark_cyclical(-1) end, {desc="Prev. emark"})
+
+local labels = {}
+for i = 1, 9 do labels[#labels + 1] = tostring(i) end
+for charCode = string.byte("A"), string.byte("Z") do labels[#labels + 1] = string.char(charCode) end
+for charCode = string.byte("a"), string.byte("z") do labels[#labels + 1] = string.char(charCode) end
+M.labelS = table.concat(labels, "")
+
+for _, lbl in ipairs(labels) do
+  setmap("n", "m" .. lbl, function() M.mark_here(lbl) end)
+  setmap("n", "'" .. lbl, function() M.goto_mark(lbl) end)
+  setmap("v", "'" .. lbl, function() M.goto_mark(lbl) end)
+  -- For the above labels, shadow § (which I map to backtick, i.e. built-in marks)
+  setmap("n", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
+  setmap("v", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
+end
+setmap("n", "<leader>'", function () M.show() end, {desc="Edit emarks"})
+setmap("n", "dm", M.clear_mark_here, {desc="Del/Clear emark"})
+-- stylua: ignore end
+
+-- Map "mm" to set a mark with the lowest available label
+setmap("n", "mm", M.mark_here_auto, {desc="Emark here"})
+
 
 -- ╔════════════════════╗
 -- ║ Read/Write storage ║
 -- ╚════════════════════╝
+---@type string?
+M.current = nil
 
 function M.set_marks_file()
   local pattern = "/"
@@ -149,6 +235,44 @@ function M.set_marks_file()
   M.current = name
 end
 
+-- Merely a visual aid. Defined below
+local append_line_contents
+
+function M.save(line_contents)
+  local file = io.open(M.current, "w")
+  local marks = M.extmark_locations()
+  local txt = vim.inspect({ extmarks = marks, views = views })
+  if line_contents then
+    txt = append_line_contents(txt, marks)
+  end
+
+  if file then
+    file:write(txt)
+    file:close()
+    -- print("Marks saved")
+  else
+    print("Error: Unable to open file for writing")
+  end
+end
+
+-- Load entire emarks file (also used after manual edits)
+function M.load()
+  extmarks = {}
+  views = {}
+  local file = io.open(M.current, "r")
+  if file then
+    local data = load("return " .. file:read("*all"))() or {}
+    extmarks = data.extmarks or {}
+    views = data.views or {}
+    file:close()
+    -- print("Marks loaded")
+  else
+    print("Error: Unable to open " .. file .. " for reading")
+  end
+end
+
+-- *Set* (not merely load) emarks in current buffer.
+-- PS: dont want to set all project emarks coz would necessitate loading respective buffers.
 function M.reload_for_buffer()
   local current_bufr = vim.api.nvim_get_current_buf()
   local current_name = vim.fn.bufname()
@@ -166,24 +290,23 @@ function M.reload_for_buffer()
   end
 end
 
-function M.load()
-  local file = io.open(M.current, "r")
-  if file then
-    local data = load("return " .. file:read("*all"))() or {}
-    extmarks = data.extmarks or {}
-    views = data.views or {}
-    file:close()
-    -- print("Marks loaded")
-  else
-    print("Error: Unable to open " .. file .. " for reading")
-  end
-end
+vim.api.nvim_create_autocmd("BufReadPost", {
+  group = "mygroup",
+  callback = M.reload_for_buffer,
+})
 
+
+-- ╔══════════════════════════════════════╗
+-- ║ Facilitate view/edit of storage file ║
+-- ╚══════════════════════════════════════╝
+
+-- Parse label from emarks file
 local function parse_mark_label(line)
   return line:match('^%s*%[?"?([%w_]+)"?%]?%s*=')
 end
 
-local function append_line_contents(txt, marks)
+-- Add (in comments) the line contents of a mark
+function append_line_contents(txt, marks)
   local lines = vim.split(txt, "\n")
   for i = 1, #lines do
     -- Must extract label from printed text because sorted, unlike `marks`.
@@ -210,114 +333,37 @@ local function append_line_contents(txt, marks)
   return txt
 end
 
-function M.save(line_contents)
-  local file = io.open(M.current, "w")
-  local marks = M.marks_for_storage()
-  local txt = vim.inspect({ extmarks = marks, views = views })
-  if line_contents then
-    txt = append_line_contents(txt, marks)
-  end
-
-  if file then
-    file:write(txt)
-    file:close()
-    -- print("Marks saved")
-  else
-    print("Error: Unable to open file for writing")
-  end
-end
-
--- Return fresh `marks` with any/all bufnr and mark-id converted to name and pos.
-function M.marks_for_storage()
-  local marks = {}
-  for label, mark in pairs(extmarks) do
-    local buf, pos = mark[1], mark[2]
-    if type(buf) == "number" then
-      if vim.api.nvim_buf_is_loaded(buf) then
-        -- Convert buffer id's to filenames
-        pos = vim.api.nvim_buf_get_extmark_by_id(buf, ns, pos, {})
-        buf = vim.fn.bufname(buf)
-        if pos[1] then
-          -- Convert from (0, 0)-based indexing (api) to (1, 1)-based indexing
-          pos[1] = pos[1] + 1
-          pos[2] = pos[2] + 1
-          marks[label] = { buf, pos }
-        end
-      end
-    else
-      marks[label] = { buf, pos }
-    end
-  end
-  return marks
-end
-
+-- Edit raw emarks file
 function M.show()
   vim.api.nvim_command("e " .. vim.fn.fnameescape(M.current))
 end
 
-vim.api.nvim_create_autocmd("BufReadPost", {
+-- Trigger load
+vim.api.nvim_create_autocmd("BufWritePost", {
   group = "mygroup",
-  callback = M.reload_for_buffer,
+  pattern = "*/emarks/*.emarks",
+  callback = M.load,
 })
 
--- ╔════════╗
--- ║Mappings║
--- ╚════════╝
-local function setmap(mode, lhs, rhs, opts)
-  local options = { noremap = true, silent = true }
-  if opts then
-    options = vim.tbl_extend("force", options, opts)
-  end
-  vim.keymap.set(mode, lhs, rhs, options)
-end
+-- <CR> to goto mark from emarks file
+vim.api.nvim_create_autocmd("BufEnter", {
+  group = "mygroup",
+  pattern = "*/emarks/*.emarks",
+  callback = function()
+    M.save(true)
+    vim.api.nvim_command("e " .. vim.fn.fnameescape(M.current))
+    vim.api.nvim_set_option_value("syntax", "lua", { buf = 0 })
+    -- Go to mark on enter
+    setmap("n", "<CR>", function()
+      local line = vim.api.nvim_get_current_line()
+      local lbl = parse_mark_label(line)
+      if lbl then
+        M.goto_mark(lbl)
+      end
+    end, { buffer = true, desc="Goto emark" })
+  end,
+})
 
--- Shift-opt-n/p (h/l also available?)
--- stylua: ignore start
-setmap("n", "<M-N>", function() M.goto_mark_cyclical(1) end, {desc="Next emark"})
-setmap("n", "<M-P>", function() M.goto_mark_cyclical(-1) end, {desc="Prev. emark"})
-
-local labels = {}
-for i = 1, 9 do labels[#labels + 1] = tostring(i) end
-for charCode = string.byte("A"), string.byte("Z") do labels[#labels + 1] = string.char(charCode) end
-for charCode = string.byte("a"), string.byte("z") do labels[#labels + 1] = string.char(charCode) end
-M.labelS = table.concat(labels, "")
-
-for _, lbl in ipairs(labels) do
-  setmap("n", "m" .. lbl, function() M.mark_here(lbl) end)
-  setmap("n", "'" .. lbl, function() M.goto_mark(lbl) end)
-  setmap("v", "'" .. lbl, function() M.goto_mark(lbl) end)
-  -- For the above labels, shadow § (which I map to backtick, i.e. built-in marks)
-  setmap("n", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
-  setmap("v", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
-end
-setmap("n", "<leader>'", M.show, {desc="Edit emarks"})
-setmap("n", "dm", M.clear_mark_here, {desc="Del/Clear emark"})
--- stylua: ignore end
-
--- Function to get the lowest available label
-function M.get_lowest_available_label()
-  local possible_lables = "123456789qwertyuipasdfghjkl"
-  for i = 1, #possible_lables do
-    local label = possible_lables:sub(i, i)
-    if not extmarks[label] then
-      return label
-    end
-  end
-  return nil -- In case all possible_lables are used
-end
-
--- Function to set a mark with the lowest available label
-function M.mark_here_auto()
-  local label = M.get_lowest_available_label()
-  if label then
-    M.mark_here(label)
-  else
-    print("Error: No more available labels")
-  end
-end
-
--- Map "mm" to set a mark with the lowest available label
-setmap("n", "mm", M.mark_here_auto, {desc="Emark here"})
 
 -- ╔════════════════════════════════╗
 -- ║ Hook into lazyvim statuscolumn ║
@@ -339,36 +385,5 @@ require("lazyvim.util.ui").get_mark = function(buf, lnum)
     end
   end
 end
-
--- ╔═══════════════════════════╗
--- ║autocommands for marks file║
--- ╚═══════════════════════════╝
-vim.api.nvim_create_autocmd("BufWritePost", {
-  group = "mygroup",
-  pattern = "*/emarks/*.emarks",
-  callback = function()
-    extmarks = {}
-    views = {}
-    M.load()
-  end,
-})
-
-vim.api.nvim_create_autocmd("BufEnter", {
-  group = "mygroup",
-  pattern = "*/emarks/*.emarks",
-  callback = function()
-    M.save(true)
-    vim.api.nvim_command("e " .. vim.fn.fnameescape(M.current))
-    vim.api.nvim_set_option_value("syntax", "lua", { buf = 0 })
-    -- Go to mark on enter
-    setmap("n", "<CR>", function()
-      local line = vim.api.nvim_get_current_line()
-      local lbl = parse_mark_label(line)
-      if lbl then
-        M.goto_mark(lbl)
-      end
-    end, { buffer = true, desc="Goto emark" })
-  end,
-})
 
 return M

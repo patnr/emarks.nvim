@@ -6,7 +6,7 @@ local em = require('emarks.core')
 
 -- Format as vim.fn.getmarklist
 local function getmarklist()
-  local marks = em.marks_for_storage()
+  local marks = em.extmark_locations()
   local out = {}
   for label, mark in pairs(marks) do
     local bufname, pos = mark[1], mark[2]
