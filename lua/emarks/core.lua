@@ -273,8 +273,8 @@ end
 
 -- Shift-opt-n/p (h/l also available?)
 -- stylua: ignore start
-setmap("n", "<M-N>", function() M.goto_mark_cyclical(1) end)
-setmap("n", "<M-P>", function() M.goto_mark_cyclical(-1) end)
+setmap("n", "<M-N>", function() M.goto_mark_cyclical(1) end, {desc="Next emark"})
+setmap("n", "<M-P>", function() M.goto_mark_cyclical(-1) end, {desc="Prev. emark"})
 
 local labels = {}
 for i = 1, 9 do labels[#labels + 1] = tostring(i) end
@@ -290,8 +290,8 @@ for _, lbl in ipairs(labels) do
   setmap("n", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
   setmap("v", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
 end
-setmap("n", "<leader>'", M.show)
-setmap("n", "dm", M.clear_mark_here)
+setmap("n", "<leader>'", M.show, {desc="Edit emarks"})
+setmap("n", "dm", M.clear_mark_here, {desc="Del/Clear emark"})
 -- stylua: ignore end
 
 -- Function to get the lowest available label
@@ -317,7 +317,7 @@ function M.mark_here_auto()
 end
 
 -- Map "mm" to set a mark with the lowest available label
-setmap("n", "mm", M.mark_here_auto)
+setmap("n", "mm", M.mark_here_auto, {desc="Emark here"})
 
 -- ╔════════════════════════════════╗
 -- ║ Hook into lazyvim statuscolumn ║
@@ -367,7 +367,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
       if lbl then
         M.goto_mark(lbl)
       end
-    end, { buffer = true })
+    end, { buffer = true, desc="Goto emark" })
   end,
 })
 
