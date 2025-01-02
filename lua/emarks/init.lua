@@ -1,5 +1,5 @@
 local Config = require("emarks.config")
-vim.api.nvim_create_augroup("mygroup", { clear = true })
+vim.api.nvim_create_augroup("aug_emarks", { clear = true })
 local emarks = require("emarks.core")
 require("emarks.which-key-hook")
 require("emarks.fzf-lua-hook")
@@ -17,7 +17,7 @@ function M.start()
   emarks.load()
 
   vim.api.nvim_create_autocmd("VimLeavePre", {
-    group = "mygroup",
+    group = "aug_emarks",
     callback = function()
       if Config.options.pre_save then
         Config.options.pre_save()
@@ -44,7 +44,7 @@ function M.start()
 end
 
 function M.stop()
-  pcall(vim.api.nvim_del_augroup_by_name, "mygroup")
+  pcall(vim.api.nvim_del_augroup_by_name, "aug_emarks")
 end
 
 function M.save()

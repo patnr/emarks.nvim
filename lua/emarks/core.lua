@@ -291,7 +291,7 @@ function M.reload_for_buffer()
 end
 
 vim.api.nvim_create_autocmd("BufReadPost", {
-  group = "mygroup",
+  group = "aug_emarks",
   callback = M.reload_for_buffer,
 })
 
@@ -340,14 +340,14 @@ end
 
 -- Trigger load
 vim.api.nvim_create_autocmd("BufWritePost", {
-  group = "mygroup",
+  group = "aug_emarks",
   pattern = "*/emarks/*.emarks",
   callback = M.load,
 })
 
 -- <CR> to goto mark from emarks file
 vim.api.nvim_create_autocmd("BufEnter", {
-  group = "mygroup",
+  group = "aug_emarks",
   pattern = "*/emarks/*.emarks",
   callback = function()
     M.save(true)
