@@ -25,7 +25,8 @@ local uv = vim.uv or vim.loop
 -- Similar to lua/fzf-lua/providers/nvim.lua:marks()
 
 local function read_line_from_file(filepath, line_number)
-  local file = io.open(filepath, "r")
+  filepath = path.tilde_to_HOME(filepath)
+  local file = filepath and io.open(filepath, "r")
   if not file then
     return nil
   end
@@ -56,8 +57,9 @@ local function get_emarks()
 
     -- Add line contents
     local ln_content = read_line_from_file(bufname, line)
-    ---@diagnostic disable-next-line: need-check-nil
-    ln_content = ln_content:gsub("^%s*(.-)%s*$", "%1") -- de-indent
+    if ln_content then
+      ln_content = ln_content:gsub("^%s*(.-)%s*$", "%1") -- de-indent
+    end
     -- Only works for loaded buffers:
     -- if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
     --   ln_content = vim.api.nvim_buf_get_lines(bufnr, line - 1, line, false)[1]
