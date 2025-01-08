@@ -77,8 +77,14 @@ M.goto_mark = function(label, opts)
       if pos[1] then
         vim.api.nvim_win_set_cursor(0, { pos[1] + 1, pos[2] })
         if options.restore_view then
-          if views[label] then
-            vim.fn.winrestview(views[label])
+          local view = views[label]
+          if view then
+            -- Compensate for the fact that views dont update like extmarks
+            local diff = pos[1] +1 - view.lnum
+            view.lnum = view.lnum + diff
+            view.topline = view.topline + diff
+            view.col = pos[2]
+            vim.fn.winrestview(view)
           end
         end
       end
