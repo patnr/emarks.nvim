@@ -39,7 +39,9 @@ local views = {}
 local last_visited_label = nil
 
 function M.set(label, bufnr, linenr, colnr, view)
-  local id = vim.api.nvim_buf_set_extmark(bufnr, ns, linenr, colnr, {}) -- PS: NW corner: (0, 0)
+  local id = vim.api.nvim_buf_set_extmark(bufnr, ns, linenr, colnr, -- PS: NW corner: (0, 0)
+    -- Padding ⇒ right-align (o/w sign automatically get right-padded to width 2)
+    {sign_text=" " .. label, sign_hl_group="DiagnosticHint"})
   extmarks[label] = { bufnr, id }
   views[label] = view
   -- print("Set extmark with label " .. label .. " at " .. linenr .. ":" .. colnr)
@@ -100,6 +102,8 @@ function M.clear(label)
       M.clear(lbl)
     end
   else
+    local buf, id = unpack(extmarks[label])
+    vim.api.nvim_buf_del_extmark(buf, ns, id)
     extmarks[label] = nil
     views[label] = nil
   end
@@ -370,26 +374,5 @@ vim.api.nvim_create_autocmd("BufEnter", {
   end,
 })
 
-
--- ╔════════════════════════════════╗
--- ║ Hook into lazyvim statuscolumn ║
--- ╚════════════════════════════════╝
----@diagnostic disable-next-line: duplicate-set-field
-require("lazyvim.util.ui").get_mark = function(buf, lnum)
-  local label = M.get_mark_label(buf, lnum)
-  if label then
-    label = label:sub(1, 2) -- ensure 1 char
-    return { text = label, texthl = "Identifier" }
-  end
-
-  -- Show built-in marks not used by us
-  local marks = vim.fn.getmarklist(buf)
-  vim.list_extend(marks, vim.fn.getmarklist())
-  for _, mark in ipairs(marks) do
-    if mark.pos[1] == buf and mark.pos[2] == lnum and not mark.mark:match("[" .. M.labelS .. "]") then
-      return { text = mark.mark:sub(2), texthl = "Identifier" }
-    end
-  end
-end
 
 return M
