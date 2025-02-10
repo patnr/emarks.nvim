@@ -39,6 +39,7 @@ local views = {}
 local last_visited_label = nil
 
 function M.set(label, bufnr, linenr, colnr, view)
+  pcall(M.clear,label) -- clear mark with this label (if exists)
   local id = vim.api.nvim_buf_set_extmark(bufnr, ns, linenr, colnr, -- PS: NW corner: (0, 0)
     -- Padding ⇒ right-align (o/w sign automatically get right-padded to width 2)
     {sign_text=" " .. label, sign_hl_group="DiagnosticHint"})
