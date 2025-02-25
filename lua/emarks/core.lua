@@ -43,7 +43,10 @@ function M.set(label, bufnr, linenr, colnr, view)
   local id = vim.api.nvim_buf_set_extmark(bufnr, ns, linenr, colnr, -- PS: NW corner: (0, 0)
     -- Padding ⇒ right-align (o/w sign automatically get right-padded to width 2)
     -- Use lower priority than nvim-dap (21)
-    {sign_text=" " .. label, sign_hl_group="DiagnosticHint", priority=10})
+    {sign_text=" " .. label, sign_hl_group="DiagnosticHint", priority=10,
+      -- If char at mark is replaced (using `r`) the mark should not move. Seems to require:
+    right_gravity=false
+    })
   extmarks[label] = { bufnr, id }
   views[label] = view
   -- print("Set extmark with label " .. label .. " at " .. linenr .. ":" .. colnr)
