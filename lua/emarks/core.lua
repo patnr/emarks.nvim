@@ -64,40 +64,49 @@ M.goto_mark = function(label, opts)
   if opts then
     options = vim.tbl_extend("force", options, opts)
   end
+
   local mark = extmarks[label]
-  if mark ~= nil then
-    last_visited_label = label
-    local buf, id = mark[1], mark[2]
-    if type(buf) == "string" then
-      -- Need to open buffer (⇒ reload_for_buffer)
-      vim.api.nvim_command("e " .. buf)
-      M.goto_mark(label)
+  if mark == nil then
+    print("Error: No mark with label " .. label)
+    return
+  end
+
+  last_visited_label = label
+  local buf, id = mark[1], mark[2]
+  if type(buf) == "string" then
+    -- Buffer not loaded, so open it (triggers `reload_for_buffer`,
+    -- converting `buf` to a number) and then try again
+    vim.api.nvim_command("e " .. buf)
+    M.goto_mark(label)
+
+  else
+    -- Buffer is loaded, but not necessarily in a window
+    local pos = vim.api.nvim_buf_get_extmark_by_id(buf, ns, id, {})
+    local win_num = vim.fn.bufwinid(buf)
+    if win_num ~= -1 then
+      vim.api.nvim_set_current_win(win_num)
     else
-      local pos = vim.api.nvim_buf_get_extmark_by_id(buf, ns, id, {})
-      local win_num = vim.fn.bufwinid(buf)
-      if win_num ~= -1 then
-        vim.api.nvim_set_current_win(win_num)
-      else
-        -- vim.api.nvim_set_current_buf(buf) -- doesnt get shown in bufferline
-        vim.api.nvim_command("e " .. vim.fn.bufname(buf))
-      end
-      if pos[1] then
-        vim.api.nvim_win_set_cursor(0, { pos[1] + 1, pos[2] })
-        if options.restore_view then
-          local view = views[label]
-          if view then
-            -- Compensate for the fact that views dont update like extmarks
-            local diff = pos[1] +1 - view.lnum
-            view.lnum = view.lnum + diff
-            view.topline = view.topline + diff
-            view.col = pos[2]
-            vim.fn.winrestview(view)
-          end
+      -- vim.api.nvim_set_current_buf(buf) -- doesnt get shown in bufferline
+      vim.api.nvim_command("e " .. vim.fn.bufname(buf))
+    end
+
+    -- Set cursor
+    if pos[1] then
+      vim.api.nvim_win_set_cursor(0, { pos[1] + 1, pos[2] })
+
+      -- Set view
+      if options.restore_view then
+        local view = views[label]
+        if view then
+          -- Compensate for the fact that views dont update like extmarks
+          local diff = pos[1] +1 - view.lnum
+          view.lnum = view.lnum + diff
+          view.topline = view.topline + diff
+          view.col = pos[2]
+          vim.fn.winrestview(view)
         end
       end
     end
-  else
-    print("Error: No mark with label " .. label)
   end
 end
 
@@ -290,9 +299,10 @@ end
 -- PS: dont want to set all project emarks coz would necessitate loading respective buffers.
 function M.reload_for_buffer()
   local current_bufr = vim.api.nvim_get_current_buf()
-  local current_name = vim.fn.bufname()
+  local current_name = vim.fn.fnamemodify(vim.fn.bufname(), ":p")
   for label, mark in pairs(extmarks) do
     local bufname, pos = mark[1], mark[2]
+    bufname = vim.fn.fnamemodify(bufname, ":p")
     if type(bufname) == "string" and bufname == current_name then
       local ok, _ = pcall(M.set, label, current_bufr, pos[1] - 1, pos[2] - 1, views[label])
       if not ok then
