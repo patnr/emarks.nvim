@@ -117,7 +117,8 @@ function M.clear(label)
     end
   else
     local buf, id = unpack(extmarks[label])
-    vim.api.nvim_buf_del_extmark(buf, ns, id)
+    -- Ignore errors (e.g. if file changed outside of this session)
+    local _, _ = pcall(vim.api.nvim_buf_del_extmark, buf, ns, id)
     extmarks[label] = nil
     views[label] = nil
   end
