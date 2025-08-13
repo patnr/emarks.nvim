@@ -223,10 +223,10 @@ M.labelS = table.concat(labels, "")
 for _, lbl in ipairs(labels) do
   setmap("n", "m" .. lbl, function() M.mark_here(lbl) end)
   setmap("n", "'" .. lbl, function() M.goto_mark(lbl) end)
-  setmap("v", "'" .. lbl, function() M.goto_mark(lbl) end)
+  setmap("x", "'" .. lbl, function() M.goto_mark(lbl) end)
   -- For the above labels, shadow § (which I map to backtick, i.e. built-in marks)
   setmap("n", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
-  setmap("v", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
+  setmap("x", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
 end
 setmap("n", "<leader>'", function () M.show() end, {desc="Edit emarks"})
 setmap("n", "dm", M.clear_mark_here, {desc="Del/Clear emark"})
