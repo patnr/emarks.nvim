@@ -76,6 +76,10 @@ M.goto_mark = function(label, opts)
   if type(buf) == "string" then
     -- Buffer not loaded, so open it (triggers `reload_for_buffer`,
     -- converting `buf` to a number) and then try again
+    if not vim.uv.fs_stat(buf) then
+      print("Error: File " .. buf .. " does not exist")
+      return
+    end
     vim.api.nvim_command("e " .. buf)
     M.goto_mark(label)
 
