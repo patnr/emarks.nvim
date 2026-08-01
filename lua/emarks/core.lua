@@ -11,6 +11,9 @@ local extmarks = {}
 local ns = vim.api.nvim_create_namespace("emarks")
 
 -- The following converts id to filename and pos.
+-- NB: this is a de facto external API — third-party integrations (e.g. a mini.map
+-- fork's marks integration) `require("emarks.core").extmark_locations()` directly,
+-- so keep this name and its return shape ({label = {bufname, {line, col}}}, 1-based) stable.
 function M.extmark_locations()
   local marks = {}
   for label, mark in pairs(extmarks) do
@@ -201,43 +204,16 @@ function M.mark_here_auto()
 end
 
 
--- ╔════════╗
--- ║Mappings║
--- ╚════════╝
-local function setmap(mode, lhs, rhs, opts)
-  local options = { noremap = true, silent = true }
-  if opts then
-    options = vim.tbl_extend("force", options, opts)
-  end
-  vim.keymap.set(mode, lhs, rhs, options)
-end
-
-
--- Shift-opt-n/p (h/l also available?)
--- stylua: ignore start
-setmap("n", "<M-N>", function() M.goto_mark_cyclical(1) end, {desc="Next emark"})
-setmap("n", "<M-P>", function() M.goto_mark_cyclical(-1) end, {desc="Prev. emark"})
-
+-- ╔═══════════╗
+-- ║ Label set ║
+-- ╚═══════════╝
+-- Keymaps (m<label>, '<label>, etc.) are intentionally NOT defined here — they live in
+-- the user's own config instead, so this plugin doesn't impose a keybinding scheme.
 local labels = {}
 for i = 1, 9 do labels[#labels + 1] = tostring(i) end
 for charCode = string.byte("A"), string.byte("Z") do labels[#labels + 1] = string.char(charCode) end
 for charCode = string.byte("a"), string.byte("z") do labels[#labels + 1] = string.char(charCode) end
 M.labelS = table.concat(labels, "")
-
-for _, lbl in ipairs(labels) do
-  setmap("n", "m" .. lbl, function() M.mark_here(lbl) end)
-  setmap("n", "'" .. lbl, function() M.goto_mark(lbl) end)
-  setmap("x", "'" .. lbl, function() M.goto_mark(lbl) end)
-  -- For the above labels, shadow § (which I map to backtick, i.e. built-in marks)
-  setmap("n", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
-  setmap("x", "§" .. lbl, function() M.goto_mark(lbl, { restore_view = false }) end)
-end
-setmap("n", "<leader>'", function () M.show() end, {desc="Edit emarks"})
-setmap("n", "dm", M.clear_mark_here, {desc="Del/Clear emark"})
--- stylua: ignore end
-
--- Map "mm" to set a mark with the lowest available label
-setmap("n", "mm", M.mark_here_auto, {desc="Emark here"})
 
 
 -- ╔════════════════════╗
@@ -384,13 +360,13 @@ vim.api.nvim_create_autocmd("BufEnter", {
     vim.api.nvim_command("e " .. vim.fn.fnameescape(M.current))
     vim.api.nvim_set_option_value("syntax", "lua", { buf = 0 })
     -- Go to mark on enter
-    setmap("n", "<CR>", function()
+    vim.keymap.set("n", "<CR>", function()
       local line = vim.api.nvim_get_current_line()
       local lbl = parse_mark_label(line)
       if lbl then
         M.goto_mark(lbl)
       end
-    end, { buffer = true, desc="Goto emark" })
+    end, { noremap = true, silent = true, buffer = true, desc = "Goto emark" })
   end,
 })
 
